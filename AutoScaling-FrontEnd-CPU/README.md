@@ -149,7 +149,7 @@ Internet
 - **DB instance class**: `Serverless v2`
 - **Minimum ACUs**: `0.5`
 - **Maximum ACUs**: `2`
-devops
+
 **Connectivity:**
 - **VPC**: Select `devops-vpc`
 - **DB subnet group**: Select `bmi-db-subnet-group`
@@ -212,21 +212,24 @@ devops
         "ssm:GetParameters",
         "ssm:GetParametersByPath"
       ],
-      "Resource": "arn:aws:ssm:*:*:parameter/bmi-app/*"
+      "Resource": "arn:aws:ssm:ap-south-1:YOUR_ACCOUNT_ID:parameter/bmi-app/*"
     },
     {
       "Effect": "Allow",
       "Action": "kms:Decrypt",
-      "Resource": "*",
+      "Resource": "arn:aws:kms:ap-south-1:YOUR_ACCOUNT_ID:key/*",
       "Condition": {
         "StringEquals": {
-          "kms:ViaService": "ssm.*.amazonaws.com"
+          "kms:ViaService": "ssm.ap-south-1.amazonaws.com"
         }
       }
     }
   ]
 }
 ```
+
+> Replace `YOUR_ACCOUNT_ID` with your 12-digit AWS account number.
+> The KMS resource is now scoped to your account only — previously it was `"*"` which allowed decrypting any key in the account (audit fix #11).
 
 6. Click **Review policy**
 7. **Name**: `BMIAppParameterStoreAccess`
@@ -657,13 +660,13 @@ chmod +x quick-test.sh
 wget https://raw.githubusercontent.com/sarowar-alam/3-tier-web-app-auto-scalling/main/AutoScaling-FrontEnd-CPU/load-test/monitor.sh
 chmod +x monitor.sh
 ```
-ap-south
+
 ### Step 10.2: Start Monitoring
 
 Open a **second terminal** and run:
 
 ```bash
-./monitor.sh bmi-frontend-asg us-east-1
+./monitor.sh bmi-frontend-asg ap-south-1
 ```
 
 This will show real-time ASG status and instance CPU metrics.
