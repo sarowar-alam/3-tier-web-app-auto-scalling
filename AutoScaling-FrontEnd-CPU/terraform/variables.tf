@@ -7,7 +7,6 @@ variable "aws_region" {
 variable "aws_profile" {
   description = "AWS CLI profile to use"
   type        = string
-  default     = "sarowar-ostad"
 }
 
 variable "environment" {
@@ -90,6 +89,12 @@ variable "aurora_max_capacity" {
   description = "Maximum Aurora Serverless v2 capacity (ACUs)"
   type        = number
   default     = 2
+}
+
+variable "aurora_deletion_protection" {
+  description = "Enable deletion protection on Aurora cluster (set true for production)"
+  type        = bool
+  default     = false
 }
 
 # Instance Configuration

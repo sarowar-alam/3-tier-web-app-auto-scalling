@@ -63,6 +63,12 @@ variable "skip_final_snapshot" {
   default     = true
 }
 
+variable "deletion_protection" {
+  description = "Enable deletion protection on the Aurora cluster (set true for production)"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

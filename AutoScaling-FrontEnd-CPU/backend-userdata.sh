@@ -3,7 +3,7 @@
 # This script installs all prerequisites for the Node.js backend
 # Run this once to create the Golden AMI
 
-set -e
+set -euo pipefail
 
 echo "========================================="
 echo "Backend Golden AMI Setup - Prerequisites"

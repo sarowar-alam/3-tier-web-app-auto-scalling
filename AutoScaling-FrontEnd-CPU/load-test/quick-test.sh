@@ -2,7 +2,7 @@
 # Load Testing Script for Frontend Auto-Scaling Demo
 # Generates heavy CPU load on frontend instances to trigger auto-scaling
 
-set -e
+set -euo pipefail
 
 # Configuration
 FRONTEND_ALB_URL="${1:-}"

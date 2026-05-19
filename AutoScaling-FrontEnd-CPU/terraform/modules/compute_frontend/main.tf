@@ -1,11 +1,12 @@
 # User data script for frontend deployment
-data "template_file" "frontend_userdata" {
-  template = <<-EOF
+locals {
+  frontend_userdata = base64encode(<<-EOT
     #!/bin/bash
     wget ${var.github_repo_url}/raw/main/AutoScaling-FrontEnd-CPU/deploy-frontend.sh
     chmod +x deploy-frontend.sh
     ./deploy-frontend.sh
-  EOF
+  EOT
+  )
 }
 
 # Launch Template for Frontend ASG
@@ -21,9 +22,9 @@ resource "aws_launch_template" "frontend" {
   
   vpc_security_group_ids = [var.security_group_id]
   
-  user_data = base64encode(data.template_file.frontend_userdata.rendered)
-  
-  metadata_options {
+  user_data = local.frontend_userdata
+
+  metadata_options{
     http_endpoint               = "enabled"
     http_tokens                 = "required"
     http_put_response_hop_limit = 1

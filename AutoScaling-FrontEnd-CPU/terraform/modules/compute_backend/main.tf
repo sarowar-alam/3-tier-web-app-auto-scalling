@@ -1,11 +1,12 @@
 # User data script for backend deployment
-data "template_file" "backend_userdata" {
-  template = <<-EOF
+locals {
+  backend_userdata = base64encode(<<-EOT
     #!/bin/bash
     wget ${var.github_repo_url}/raw/main/AutoScaling-FrontEnd-CPU/deploy-backend.sh
     chmod +x deploy-backend.sh
     ./deploy-backend.sh
-  EOF
+  EOT
+  )
 }
 
 # Backend EC2 Instances
@@ -18,9 +19,9 @@ resource "aws_instance" "backend" {
   vpc_security_group_ids = [var.security_group_id]
   iam_instance_profile   = var.iam_instance_profile
   
-  user_data = data.template_file.backend_userdata.rendered
-  
-  metadata_options {
+  user_data = local.backend_userdata
+
+  metadata_options{
     http_endpoint               = "enabled"
     http_tokens                 = "required"
     http_put_response_hop_limit = 1

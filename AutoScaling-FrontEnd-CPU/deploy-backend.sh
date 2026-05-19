@@ -2,7 +2,7 @@
 # Backend Deployment Script (runs on instance boot from Golden AMI)
 # This script clones the repo, configures, and starts the application
 
-set -e
+set -euo pipefail
 
 LOG_FILE="/var/log/backend-deploy.log"
 exec > >(tee -a ${LOG_FILE}) 2>&1
@@ -29,9 +29,13 @@ echo "PM2 version: $(pm2 --version)"
 # Fetch database credentials from Parameter Store
 echo "Fetching database credentials from Parameter Store..."
 DB_HOST=$(aws ssm get-parameter --name "/bmi-app/db-host" --region ${REGION} --query 'Parameter.Value' --output text)
+[[ -z "${DB_HOST}" ]] && { echo "FATAL: DB_HOST empty — check SSM parameter /bmi-app/db-host"; exit 1; }
 DB_NAME=$(aws ssm get-parameter --name "/bmi-app/db-name" --region ${REGION} --query 'Parameter.Value' --output text)
+[[ -z "${DB_NAME}" ]] && { echo "FATAL: DB_NAME empty — check SSM parameter /bmi-app/db-name"; exit 1; }
 DB_USER=$(aws ssm get-parameter --name "/bmi-app/db-user" --region ${REGION} --query 'Parameter.Value' --output text)
+[[ -z "${DB_USER}" ]] && { echo "FATAL: DB_USER empty — check SSM parameter /bmi-app/db-user"; exit 1; }
 DB_PASSWORD=$(aws ssm get-parameter --name "/bmi-app/db-password" --with-decryption --region ${REGION} --query 'Parameter.Value' --output text)
+[[ -z "${DB_PASSWORD}" ]] && { echo "FATAL: DB_PASSWORD empty — check SSM parameter /bmi-app/db-password"; exit 1; }
 
 echo "Database host: ${DB_HOST}"
 echo "Database name: ${DB_NAME}"
@@ -61,7 +65,6 @@ DB_PORT=5432
 DB_NAME=${DB_NAME}
 DB_USER=${DB_USER}
 DB_PASSWORD=${DB_PASSWORD}
-FRONTEND_URL=*
 EOF
 
 echo ".env file created successfully"
@@ -83,22 +86,16 @@ if [ "$DB_READY" = false ]; then
     echo "WARNING: Database not ready after 10 minutes. Continuing anyway..."
 fi
 
-# Run migrations (only if not already run)
+# Run migrations (idempotent — safe to run every boot thanks to IF NOT EXISTS guards)
 echo "Running database migrations..."
-MIGRATION_LOCK="/var/www/.migration_lock"
-if [ ! -f "$MIGRATION_LOCK" ]; then
-    echo "Running migrations for the first time..."
-    for migration in migrations/*.sql; do
-        if [ -f "$migration" ]; then
-            echo "Running migration: $migration"
-            PGPASSWORD=${DB_PASSWORD} psql -h ${DB_HOST} -U ${DB_USER} -d ${DB_NAME} -f $migration || echo "Migration may have already run or failed: $migration"
-        fi
-    done
-    touch $MIGRATION_LOCK
-    echo "Migrations completed and locked"
-else
-    echo "Migrations already run (lock file exists)"
-fi
+for migration in migrations/*.sql; do
+    if [ -f "$migration" ]; then
+        echo "Running migration: $migration"
+        PGPASSWORD=${DB_PASSWORD} psql -h ${DB_HOST} -U ${DB_USER} -d ${DB_NAME} -f "$migration"
+        echo "Migration applied: $migration"
+    fi
+done
+echo "All migrations applied successfully"
 
 # Verify tables exist
 echo "Verifying database tables..."
@@ -113,14 +110,14 @@ fi
 
 # Start application with PM2 (running as root since userdata runs as root)
 echo "Starting application with PM2..."
-pm2 delete all || true
+pm2 delete bmi-backend 2>/dev/null || true
 pm2 start ecosystem.config.js --env production
-pm2 save
 
 # Set PM2 to start on system boot
 echo "Configuring PM2 to start on boot..."
-sudo env PATH=$PATH:/usr/bin:/usr/local/bin pm2 startup systemd -u root --hp /root || true
-pm2 save || true
+sudo env PATH=$PATH:/usr/bin:/usr/local/bin pm2 startup systemd -u root --hp /root \
+    || { echo "ERROR: pm2 startup failed — app will not survive reboots"; exit 1; }
+pm2 save || { echo "ERROR: pm2 save failed — app will not survive reboots"; exit 1; }
 
 echo "========================================="
 echo "Backend Deployment Complete: $(date)"

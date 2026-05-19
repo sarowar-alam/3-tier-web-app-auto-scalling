@@ -62,7 +62,8 @@ resource "aws_rds_cluster" "aurora" {
   backup_retention_period      = var.backup_retention_period
   preferred_backup_window      = "03:00-04:00"
   preferred_maintenance_window = "mon:04:00-mon:05:00"
-  
+  deletion_protection          = var.deletion_protection
+
   skip_final_snapshot       = var.skip_final_snapshot
   final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.project_name}-aurora-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
   

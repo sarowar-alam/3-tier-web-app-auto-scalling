@@ -2,7 +2,7 @@
 # Frontend Deployment Script (runs on instance boot from Golden AMI)
 # This script clones the repo, builds React app, and configures nginx
 
-set -e
+set -euo pipefail
 
 LOG_FILE="/var/log/frontend-deploy.log"
 exec > >(tee -a ${LOG_FILE}) 2>&1
@@ -21,6 +21,7 @@ echo "Region: ${REGION}"
 # Fetch backend ALB URL from Parameter Store
 echo "Fetching backend ALB URL from Parameter Store..."
 BACKEND_ALB_URL=$(aws ssm get-parameter --name "/bmi-app/backend-alb-url" --region ${REGION} --query 'Parameter.Value' --output text)
+[[ -z "${BACKEND_ALB_URL}" ]] && { echo "FATAL: BACKEND_ALB_URL empty — check SSM parameter /bmi-app/backend-alb-url"; exit 1; }
 echo "Backend ALB URL: ${BACKEND_ALB_URL}"
 
 # Clone repository
@@ -57,8 +58,10 @@ echo "Building React application..."
 npm run build
 
 # Configure nginx
+# Unquoted heredoc: ${BACKEND_ALB_URL} is expanded by bash;
+# nginx $-variables are escaped with \ so bash leaves them as literals.
 echo "Configuring nginx..."
-sudo tee /etc/nginx/conf.d/frontend.conf > /dev/null << 'EOF'
+sudo tee /etc/nginx/conf.d/frontend.conf > /dev/null << EOF
 server {
     listen 80;
     server_name _;
@@ -73,7 +76,7 @@ server {
 
     # Main application
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files \$uri \$uri/ /index.html;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
@@ -94,14 +97,14 @@ server {
     location /api/ {
         proxy_pass ${BACKEND_ALB_URL}/api/;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
         # Timeouts
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
@@ -109,9 +112,6 @@ server {
     }
 }
 EOF
-
-# Replace placeholder with actual backend URL in nginx config
-sudo sed -i "s|\${BACKEND_ALB_URL}|${BACKEND_ALB_URL}|g" /etc/nginx/conf.d/frontend.conf
 
 # Remove conflicting default server block from nginx.conf
 echo "Removing default nginx server block to avoid conflicts..."

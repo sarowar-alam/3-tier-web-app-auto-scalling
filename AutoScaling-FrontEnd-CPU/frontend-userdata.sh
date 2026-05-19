@@ -3,7 +3,7 @@
 # This script installs all prerequisites for the React frontend with nginx
 # Run this once to create the Golden AMI
 
-set -e
+set -euo pipefail
 
 echo "========================================="
 echo "Frontend Golden AMI Setup - Prerequisites"

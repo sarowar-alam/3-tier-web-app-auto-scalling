@@ -2,6 +2,7 @@
 # Real-time monitoring script for Auto Scaling Group activity
 # Displays ASG status, instance count, and CloudWatch metrics
 
+set -uo pipefail
 # Configuration
 ASG_NAME="${1:-}"
 REGION="${2:-us-east-1}"

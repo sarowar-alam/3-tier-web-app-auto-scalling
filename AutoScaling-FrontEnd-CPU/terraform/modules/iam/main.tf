@@ -60,7 +60,7 @@ resource "aws_iam_role_policy" "parameter_store_policy" {
         Action = [
           "kms:Decrypt"
         ]
-        Resource = "*"
+        Resource = "arn:aws:kms:${var.aws_region}:${var.account_id}:key/*"
         Condition = {
           StringEquals = {
             "kms:ViaService" = [
@@ -77,6 +77,4 @@ resource "aws_iam_role_policy" "parameter_store_policy" {
 resource "aws_iam_instance_profile" "ec2_profile" {
   name_prefix = "${var.project_name}-ec2-profile-"
   role        = aws_iam_role.ec2_role.name
-
-  tags = var.tags
 }

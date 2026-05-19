@@ -7,6 +7,7 @@ locals {
     var.additional_tags,
     {
       Application = "BMI Health Tracker"
+      Environment = var.environment
       Terraform   = "true"
     }
   )
@@ -64,7 +65,9 @@ module "database" {
   
   min_capacity = var.aurora_min_capacity
   max_capacity = var.aurora_max_capacity
-  
+
+  deletion_protection = var.aurora_deletion_protection
+
   allowed_security_group_id = module.network.backend_ec2_sg_id
   
   tags = local.common_tags
